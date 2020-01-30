@@ -16,7 +16,7 @@ void setup() {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("success!");
+  Serial.println("Success!");
   Serial.print("IP Address is: "); Serial.println(WiFi.localIP());
 
   Serial.println(); Serial.print("Configuring WiFi access point...");
