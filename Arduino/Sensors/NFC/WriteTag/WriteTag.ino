@@ -6,14 +6,24 @@
 #define PN532_RESET (3)
  
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
+
+// Some constants refering to the Mifare Classic NFC standard
+const int FIRST_UTIL_BLOCK = 4;
+const int TOTAL_UTIL_SECTORS = 15;
+const int UTIL_BLOCKS_PER_SECTOR = 3;
+const int BLOCK_SIZE = 16;
  
 void setup(void) {
   Serial.begin(115200);
   setupNFC();  
   Serial.println("Approach the card\n");
+
+  /*if (writeCard("Example of text parsing --> WELL DONE!")) Serial.println("Card is written now!");
+  else Serial.println("An error occured. Please, try it again");*/
+
+  if (cleanCard()) Serial.println("Card is clean now!");
+  else Serial.println("An error occured. Please, try it again");
   
-  //writeCard("Example of text parsing --> WELL DONE!");
-  cleanCard();
 }
  
 void loop(void) {
@@ -27,12 +37,12 @@ void setupNFC() {
   nfc.SAMConfig();
 }
 
-// Write an input text inot the NFC tag
-void writeCard(String input) {
+// Write an input text into the NFC tag
+uint8_t writeCard(String input) {
 
   // Required variables
   uint8_t success = true;
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 }; uint8_t uidLength;
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 }; uint8_t uidLength; // UID is 7 bytes sized by default
 
   // Validate tag
   success = success & nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
@@ -42,33 +52,32 @@ void writeCard(String input) {
 
     // Parsing input text
     uint8_t data[input.length()]; input.toCharArray(data, input.length());
-    uint8_t block[16]; int actualBlock = 4;
-    for (int i=0; i<sizeof(data); i+=16) {
+    uint8_t block[BLOCK_SIZE]; int actualBlock = FIRST_UTIL_BLOCK;
+    for (int i=0; i<sizeof(data); i+=BLOCK_SIZE) {
   
-      if (sizeof(data)-i >= 16) {
-        for (int j=i; j<i+16; j++){
+      if (sizeof(data)-i >= BLOCK_SIZE) {
+        for (int j=i; j<i+BLOCK_SIZE; j++){
           block[j-i] = data[j];
         }
       } else {
         for (int j=i; j < sizeof(data); j++){
           block[j-i] = data[j];
         }
-        for (int j = sizeof(data)-i; j<16; j++){
+        for (int j = sizeof(data)-i; j<BLOCK_SIZE; j++){
           block[j] = 0;
         }
       }
   
       // Validate block
-      uint8_t keya[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF }; 
+      uint8_t keya[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF }; // The validation key is 6 bytes sized by default
       success = success & nfc.mifareclassic_AuthenticateBlock(uid, uidLength, actualBlock, 0, keya);
-      if (success) {
-        // Write block
-        success = success & nfc.mifareclassic_WriteDataBlock (actualBlock, block);
-      }
+
+      // Write block
+      if (success) success = success & nfc.mifareclassic_WriteDataBlock (actualBlock, block);
 
       // Move to a valid block (not overwrite the last block of each section)
       actualBlock++;
-      if (actualBlock % 4 == 3) {
+      if (actualBlock % (UTIL_BLOCKS_PER_SECTOR+1) == UTIL_BLOCKS_PER_SECTOR) {
         actualBlock++;
       }
          
@@ -76,17 +85,16 @@ void writeCard(String input) {
     
   }
     
-  if (success) Serial.println("Card is written now!");
-  else Serial.println("An error occured. Please, try it again");
+  return success;
   
 }
 
 // Clean the NFC tag
-void cleanCard() {
+uint8_t cleanCard() {
 
   // Required variables
   uint8_t success = true;
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 }; uint8_t uidLength;
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 }; uint8_t uidLength; // UID is 7 bytes sized by default
   
   // Validate tag
   success = success && nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
@@ -94,15 +102,16 @@ void cleanCard() {
 
     Serial.println("Cleaning card...");
 
-    // Creating a "clean" block
-    uint8_t block[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    int actualBlock = 4;
+    // Creating a "clean" block and setting the working block
+    uint8_t block[BLOCK_SIZE];
+    for (int i=0; i<BLOCK_SIZE; i++) 
+      block[i] = 0;
+    int actualBlock = FIRST_UTIL_BLOCK;
 
-    // Mifare Classic has 15 writtable sectors (the first one has data) with 3 writtable blocks (the last one has data) of 16 bytes --> 15*48 writtable bytes
-    for (int i=0; i<15*48; i+=16) {
+    for (int i=0; i<(TOTAL_UTIL_SECTORS*UTIL_BLOCKS_PER_SECTOR*BLOCK_SIZE); i+=BLOCK_SIZE) {
 
       // Validate block
-      uint8_t keya[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF }; 
+      uint8_t keya[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };  // The validation key is 6 bytes sized by default
       success = success && nfc.mifareclassic_AuthenticateBlock(uid, uidLength, actualBlock, 0, keya);
 
       // Clean block
@@ -110,7 +119,7 @@ void cleanCard() {
       
       // Move to a valid block (not overwrite the last block of each section)
       actualBlock++;
-      if (actualBlock % 4 == 3) {
+      if (actualBlock % (UTIL_BLOCKS_PER_SECTOR+1) == UTIL_BLOCKS_PER_SECTOR) {
         actualBlock++;
       }
 
@@ -118,7 +127,6 @@ void cleanCard() {
     
   }
     
-  if (success) Serial.println("Card is clean now!");
-  else Serial.println("An error occured. Please, try it again");
+  return success;
   
 }
