@@ -2,8 +2,8 @@
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 
-const char* ssid = "ZyXEL NBG-418N v2";
-const char* password = "RJFTY69649";
+const char* ssid = "MIWIFI_CEaF";
+const char* password = "YQKC3FqR";
 
 void setup() 
 {
@@ -15,6 +15,7 @@ void setup()
     delay(1000);
     Serial.println("Connecting...");
   }
+  Serial.println("CONNECTED!");
 }
 
 void loop() 
@@ -22,7 +23,7 @@ void loop()
   if (WiFi.status() == WL_CONNECTED) 
   {
     HTTPClient http; //Object of class HTTPClient
-    http.begin("http://www.potterapi.com/v1/sortingHat");
+    http.begin("192.168.1.143:3000/api/measures");
     int httpCode = http.GET();
 
     if (httpCode > 0) 

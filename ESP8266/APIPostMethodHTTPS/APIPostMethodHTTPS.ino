@@ -1,5 +1,5 @@
 #include <ESP8266WiFi.h>
-#include <WiFiClientSecure.h>
+#include <ESP8266HTTPClient.h>
 
 #ifndef STASSID
 #define STASSID "MIWIFI_CEaF"
@@ -33,7 +33,7 @@ void setup() {
   Serial.print("Connecting to "); Serial.println(host);
 
   /*Serial.printf("Using fingerprint '%s'\n", fingerprint);
-  client.setFingerprint(fingerprint);*/
+    client.setFingerprint(fingerprint);*/
 
   if (!client.connect(host, port)) {
     Serial.println("connection failed");
@@ -44,10 +44,18 @@ void setup() {
   Serial.print("requesting URL: ");
   Serial.println(url);
 
-  client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+  client.print(String("POST ") + url + " HTTP/1.1\r\n" +
                "Host: " + host + "\r\n" +
-               "User-Agent: BuildFailureDetectorESP8266\r\n" +
+               "Content-Type: application/json" + "\r\n" +
+               "Content-Length: 133" + "\r\n\r\n" +
+               "{\"id\":\"T00010003\",\"id_trip\":\"0001\",\"id_driv\":\"0001\",\"dist_act\":\"37.5\",\"coord_lat\":\"43.6\",\"coord_lon\":\"-1.71\",\"spd\":\"12\",\"t\":\"103421\"}" + "\r\n" +
                "Connection: close\r\n\r\n");
+
+  /*client.print(String("POST ") + url + " HTTP/1.1\r\n" +
+               "Host: " + host + "\r\n" +
+               "Content-Type: application/json\r\n" +
+               "{\"id\":\"T00010002\",\"id_trip\":\"0001\",\"id_driv\":\"0001\",\"dist_act\":\"25\",\"coord_lat\":\"42.6\",\"coord_lon\":\"-1.70\",\"spd\":\"10\",\"t\":\"102956\"}" +
+               "\r\n\r\n");*/
 
   Serial.println("request sent");
   while (client.connected()) {
@@ -68,7 +76,23 @@ void setup() {
   Serial.println(line);
   Serial.println("==========");
   Serial.println("closing connection");
+
+
+
+  /*Serial.println("Sending information");
+
+    HTTPClient http;
+    http.begin("http://192.168.1.134:3000/api/measures");
+    http.addHeader("Content-Type", "application/json");
+    int httpCode = http.POST();
+    String payload = http.getString();
+
+    Serial.println(httpCode);
+    Serial.println(payload);
+
+    http.end();*/
+
 }
 
 void loop() {
-}z
+}
