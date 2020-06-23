@@ -48,12 +48,17 @@ void loop() {
           char *token; token = strtok(arr, ",");
           token = strtok(NULL, ","); aux_lat = parseGNSS(atof(token)); token = strtok(NULL, ",");
           if (token[0] == 'S') aux_lat = -aux_lat; // If latitude is on the South, convert it to negative
+          if ((aux_lat < -90) || (aux_lat > 90)) aux_lat = 0;
           token = strtok(NULL, ","); aux_lon = parseGNSS(atof(token)); token = strtok(NULL, ",");
           if (token[0] == 'W') aux_lon = -aux_lon; // If longitude is on the West, convert it to negative
+          if ((aux_lon < -180) || (aux_lon > 180)) aux_lon = 0;
           
           // Compute distance between stored and new coordinates
           if ((f_lat == 180) && (f_lon == 180)) {
-            f_lat = aux_lat; f_lon = aux_lon;
+            if ((aux_lat != 0) && (aux_lon != 0)) {
+              f_lat = aux_lat; f_lon = aux_lon;
+              // Notify error
+            }
           } else {
             dist += getTravelledDistance(aux_lat, aux_lon);
             f_lat = aux_lat; f_lon = aux_lon;
