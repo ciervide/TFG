@@ -18,11 +18,11 @@ void setup(void) {
   setupNFC();  
   Serial.println("Approach the card\n");
 
-  /*if (writeCard("Example of text parsing --> WELL DONE!")) Serial.println("Card is written now!");
-  else Serial.println("An error occured. Please, try it again");*/
-
-  if (cleanCard()) Serial.println("Card is clean now!");
+  if (writeCard("1998\n")) Serial.println("Card is written now!");
   else Serial.println("An error occured. Please, try it again");
+
+  /*if (cleanCard()) Serial.println("Card is clean now!");
+  else Serial.println("An error occured. Please, try it again");*/
   
 }
  

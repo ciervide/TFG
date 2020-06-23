@@ -43,7 +43,7 @@ String readCard() {
   String output = "";
   
   // Validate tag
-  success = success & nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
+  success = success & nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength,5000);
   if (success) {
 
     Serial.println("Reading card...");
