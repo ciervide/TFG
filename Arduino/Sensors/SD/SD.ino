@@ -13,7 +13,7 @@ void setup() {
   }
   Serial.println("SD initialization completed");
 
-  writeOnSD("test.txt", "Hello world!", true);
+  writeOnSD("test.txt", "Hello world!", false);
   String str = readFromSD("test.txt");
   Serial.println(str);
   
@@ -29,7 +29,7 @@ void writeOnSD(String fileName, String content, boolean overwrite) {
     deleteFromSD(fileName);
   mySDFile = SD.open(fileName, FILE_WRITE);
   if (mySDFile) {
-    mySDFile.println(content); mySDFile.close();
+    mySDFile.print(content); mySDFile.close();
   }
 }
 
