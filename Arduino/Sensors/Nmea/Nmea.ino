@@ -10,7 +10,7 @@ float f_lat = 180, f_lon = 180, dist = 0, max_dist = 0, num_measures = 0;
 float EARTH_RADIUS = 6371e3;
 
 Gaussian gen;
-float MEAN = 0.2, VAR = 0.4;
+float MEAN = 0.04, VAR = 0.03;
 
 unsigned long previousMillis = 0;
 
