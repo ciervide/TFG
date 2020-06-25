@@ -4,6 +4,7 @@
 #include <SD.h>
 #include <SoftwareSerial.h>
 #include <SPI.h>
+#include <WiFiNINA.h>
 #include <Wire.h>
 #define PN532_IRQ_PIN   2 // NFC Shield
 #define PN532_RESET_PIN 3 // NFC Shield
@@ -47,6 +48,13 @@ float coord_lat = 180;
 float coord_lon = 180;
 float spd;
 float t;
+
+// Constants and variables to connect with the system (wifi)
+const char ssid[] = "NotYetNamedAccessPoint"; // Network SSID (name)
+const char pass[] = "Admin1234";              // Network password
+const char* host = "192.168.4.1";
+const int port = 3001;
+int status = WL_IDLE_STATUS;     // the Wifi radio's status
 
 // Constants to manage parking distance
 const float A = 17478.4, B = -1.2093;
@@ -116,7 +124,19 @@ void loop() {
       }
       break;
     case 1:
-      
+      // Setting wifi
+      while (status != WL_CONNECTED)
+        status = WiFi.begin(ssid, pass);
+      WiFiClient client;
+      if (!client.connect(host, port))
+        return;
+
+      // Sending data
+      client.println("POST");
+      client.println(readFromSD(MEASURES_FILE));
+      deleteFromSD(MEASURES_FILE);
+      sound(3);
+      actualMode = 0;
       break;
     case 2:
       float data = analogRead(IRSENSOR_PIN);
