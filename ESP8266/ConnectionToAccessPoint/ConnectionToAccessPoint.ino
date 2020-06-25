@@ -1,7 +1,7 @@
 #include <ESP8266WiFi.h>
 
-const char* ssid = "ZyXEL NBG-418N v2";
-const char* password = "RJFTY69649";
+const char* ssid = "MIWIFI_CEaF";
+const char* password = "YQKC3FqR";
 
 void setup() {
   delay(1000);

@@ -9,7 +9,7 @@
 const char* ssid = STASSID;
 const char* password = STAPSK;
 
-const char* host = "192.168.1.143";
+const char* host = "192.168.1.196";
 const int port = 3000;
 
 // Use web browser to view and copy

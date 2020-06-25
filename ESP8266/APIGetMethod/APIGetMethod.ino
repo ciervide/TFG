@@ -23,7 +23,7 @@ void loop()
   if (WiFi.status() == WL_CONNECTED) 
   {
     HTTPClient http; //Object of class HTTPClient
-    http.begin("192.168.1.143:3000/api/measures");
+    http.begin("192.168.1.196:3000/api/measures");
     int httpCode = http.GET();
 
     if (httpCode > 0) 

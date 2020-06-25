@@ -9,7 +9,7 @@
 const char* ssid = STASSID;
 const char* password = STAPSK;
 
-const char* host = "192.168.1.143";
+const char* host = "192.168.1.196";
 const int port = 3000;
 
 // Use web browser to view and copy
@@ -76,21 +76,6 @@ void setup() {
   Serial.println(line);
   Serial.println("==========");
   Serial.println("closing connection");
-
-
-
-  /*Serial.println("Sending information");
-
-    HTTPClient http;
-    http.begin("http://192.168.1.134:3000/api/measures");
-    http.addHeader("Content-Type", "application/json");
-    int httpCode = http.POST();
-    String payload = http.getString();
-
-    Serial.println(httpCode);
-    Serial.println(payload);
-
-    http.end();*/
 
 }
 

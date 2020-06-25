@@ -1,7 +1,7 @@
 #include <ESP8266WiFi.h>
 
-const char* inSSID = "ZyXEL NBG-418N v2";
-const char* inPass = "RJFTY69649";
+const char* inSSID = "MIWIFI_CEaF";
+const char* inPass = "YQKC3FqR";
 const char* outSSID = "NotYetNamedAccessPoint";
 const char* outPass = "Admin1234";
 
