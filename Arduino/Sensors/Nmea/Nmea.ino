@@ -30,29 +30,23 @@ void setup() {
 
 void loop() {
 
-  // Take into account that invalid coordinates are taken while the device connects with the satellites
- 
   char inc;
-  unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= 5000) {
-    
-    if (gps.available()) {
-      inc = gps.read();
-      if (inc == '$') {
-        if (str.indexOf("$GNGLL") >= 0) {
-          GLL = str;
-        } else if (str.indexOf("$GNVTG") >= 0) {
-          VTG = str;
-        }
-        str = "$";
-      } else {
-        str += inc;
-      }
+  if (gps.available()) {
+    inc = gps.read();
+    if (inc == '$') {
+      if (str.indexOf("$GNGLL") >= 0)
+        GLL = str;
+      else if (str.indexOf("$GNVTG") >= 0)
+        VTG = str;
       if ((GLL != "") && (VTG != ""))
         extractFromNMEA();
+      str = "$";
+    } else {
+      str += inc;
     }
     
   }
+  
 }
 
 // Compute the distance between 2 points using Haversine formula (https://en.wikipedia.org/wiki/Haversine_formula)
