@@ -1,21 +1,20 @@
 #include <Adafruit_PN532.h>
+#include <ArduinoJson.h>
 #include <Gaussian.h>
 #include <SD.h>
 #include <SoftwareSerial.h>
 #include <SPI.h>
 #include <Wire.h>
-
 #define PN532_IRQ_PIN   2 // NFC Shield
 #define PN532_RESET_PIN 3 // NFC Shield
-#define NMEA_RX_PIN 4     // NMEA
-#define NMEA_TX_PIN 5     // NMEA
-#define SOUND_PIN      8  // Buzzer
+#define NMEA_RX_PIN     4 // NMEA
+#define NMEA_TX_PIN     5 // NMEA
+#define SOUND_PIN       8 // Buzzer
 #define MODE_CHANGE_PIN 9 // Button
 #define SD_PIN         10 // SD module
 
-// Variables for menus
+// Variables of general purpose
 int actualMode = 0;
-unsigned long previousMillis = 0;
 
 // Variables and constants for NFC (Mifare Classic NFC Standard)
 Adafruit_PN532 nfc(PN532_IRQ_PIN, PN532_RESET_PIN);
@@ -25,116 +24,81 @@ const int UTIL_BLOCKS_PER_SECTOR = 3;
 const int BLOCK_SIZE = 16;
 
 // Variables por SD files read/write
-File mySDFile;
 const String TRAVEL_FILE = "travel.txt";
 const String MEASURES_FILE = "measures.txt";
+const String ODOMETER_FILE = "odometer.txt";
 
 // Variables and constants for NMEA
 const float EARTH_RADIUS = 6371e3;
-const float MEAN = 0.2:
-const float VAR = 0.4;
+const float MEAN = 0.04;
+const float VAR = 0.03;
 SoftwareSerial gps = SoftwareSerial(NMEA_RX_PIN, NMEA_TX_PIN);
 Gaussian gen;
 String str = "";
-float f_lat = 180, f_lon = 180, dist = 0, max_dist = 0, num_measures = 0;
+String GLL = "", VTG = "";
 
 // Variables to store the measures
 int measure_num;
-int id_trip;
-int id_driv;
-int dist_act;
-int coord_lat;
-int coord_lon;
-int spd;
-int t;
+String id_trip;
+String id_driv;
+float dist_act;
+float coord_lat = 180;
+float coord_lon = 180;
+float spd;
+float t;
 
 void setup() {
-
-                                                                                              //Setting the serial
-                                                                                              Serial.begin(115200);
-
+  Serial.begin(9600);
   // Setting variables and pins
   pinMode(NMEA_RX_PIN, INPUT);
   pinMode(NMEA_TX_PIN, OUTPUT);
   pinMode(MODE_CHANGE_PIN, INPUT);
   pinMode(SD_PIN, OUTPUT);
+  SD.begin(SD_PIN);
   gps.begin(9600);
   gps.flush();
-  SD.begin(SD_PIN);
   gen = Gaussian(MEAN, VAR);
-  measure_num = 0;
-  dist_act = 0;
+  measure_num = 1;
+  if (SD.exists(ODOMETER_FILE))
+    dist_act = readFromSD(ODOMETER_FILE).toFloat();
+  else
+    dist_act = readFromSD(ODOMETER_FILE + ".bac").toFloat();
 
   // Setting NFC and reading driver code (if time pass without reading, sound an alarm)
   setupNFC();
   id_driv = readCard(10*1000); // 10 seconds
-  while(id_driv == -1) {
+  while(id_driv == "-1") {
     sound(4);
     id_driv = readCard(250);
   }
   sound(3);
-
-                                                                                              Serial.print("Driver code: ");
-                                                                                              Serial.println(id_driv);
-
+  
   // Reading travel number from SD, updating it and storing on a local variable
-  id_trip = readFromSD(TRAVEL_FILE).toInt()+1;
-  writeOnSD(TRAVEL_FILE, String(id_trip), true);
-
-                                                                                              Serial.print("Travel number: ");
-                                                                                              Serial.println(id_trip);
+  int trip = readFromSD(TRAVEL_FILE).toInt()+1;
+  writeOnSD(TRAVEL_FILE, String(trip), true);
+  id_trip = parseNumber(trip, 4);
   
 }
 
 void loop() {
 
-  // Take into account that invalid coordinates are taken while the device connects with the satellites
- 
   char inc;
-  unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= 5000) {
-    
-    if (gps.available()) {
-      inc = gps.read();
-      if (inc == '$') {
-        if (str.indexOf("$GNGLL") >= 0) {
-          // Needed variables to extract the coordinates
-          char arr[str.length()];
-          str.toCharArray(arr, str.length() + 1);
-          float aux_lat, aux_lon;
-  
-          // Read coordinates
-          char *token; token = strtok(arr, ",");
-          token = strtok(NULL, ","); aux_lat = parseGNSS(atof(token)); token = strtok(NULL, ",");
-          if (token[0] == 'S') aux_lat = -aux_lat; // If latitude is on the South, convert it to negative
-          if ((aux_lat < -90) || (aux_lat > 90)) aux_lat = 0;
-          token = strtok(NULL, ","); aux_lon = parseGNSS(atof(token)); token = strtok(NULL, ",");
-          if (token[0] == 'W') aux_lon = -aux_lon; // If longitude is on the West, convert it to negative
-          if ((aux_lon < -180) || (aux_lon > 180)) aux_lon = 0;
-          
-          // Compute distance between stored and new coordinates
-          if ((f_lat == 180) && (f_lon == 180)) {
-            if ((aux_lat != 0) && (aux_lon != 0)) {
-              f_lat = aux_lat; f_lon = aux_lon;
-              // Notify error
-            }
-          } else {
-            dist += getTravelledDistance(aux_lat, aux_lon);
-            f_lat = aux_lat; f_lon = aux_lon;
-            Serial.print("Travelled distance: "); Serial.print(dist, 4); Serial.println("m");
-          }
-          
-          // To increase sampling time
-          //previousMillis = currentMillis;
-          
-        }
-        str = "$";
-      } else {
-        str += inc;
-      }
+  if (gps.available()) {
+    inc = gps.read();
+    if (inc == '$') {
+      if (str.indexOf("$GNGLL") >= 0)
+        GLL = str;
+      else if (str.indexOf("$GNVTG") >= 0)
+        VTG = str;
+      str = "$";
+    } else {
+      str += inc;
     }
-    
+    if ((GLL != "") && (VTG != "")) {
+      extractFromNMEA();
+    }
   }
+  
 }
 
 /**
@@ -191,7 +155,7 @@ void sound(int status) {
       delay(250);
       noTone(SOUND_PIN);
       break;
-    case 5: // Parking sound: long range
+    /*case 5: // Parking sound: long range
       tone(SOUND_PIN, notes[5]);
       delay(150);
       noTone(SOUND_PIN);
@@ -208,7 +172,7 @@ void sound(int status) {
       delay(50);
       noTone(SOUND_PIN);
       delay(50);
-      break;
+      break;*/
   }
 }
 
@@ -224,10 +188,10 @@ void setupNFC() {
 /**
  * Function that reads the content of a NFC tag.
  * As it is thought to read the code of the driver, it returns the
- * code of the driver (int) if it's valid or -1 if an error ocurred
+ * code of the driver (String) if it's valid or -1 if an error ocurred
  * The "timeToSound" parameter indicates how much to wait until a sound alarm
  */
-int readCard(int timeToSound) {
+String readCard(int timeToSound) {
   
   // Required variables
   uint8_t success = true;
@@ -272,8 +236,8 @@ int readCard(int timeToSound) {
   
   }
 
-  if (success) return output.toInt();
-  else return -1; 
+  if (success) return parseNumber(output.toInt(), 4);
+  else return "-1"; 
     
 }
 
@@ -285,11 +249,15 @@ int readCard(int timeToSound) {
  *  - Boolean overwrite: "true" if the content should overwrite the file and "false" if not
  */
 void writeOnSD(String fileName, String content, boolean overwrite) {
-  if (overwrite)
+  File mySDFile;
+  if (overwrite) {
+    writeOnSD(fileName + ".bac", content, false);
     deleteFromSD(fileName);
+  }
   mySDFile = SD.open(fileName, FILE_WRITE);
   if (mySDFile) {
-    mySDFile.println(content); mySDFile.close();
+    mySDFile.print(content); mySDFile.close();
+    deleteFromSD(fileName + ".bac");
   }
 }
 
@@ -299,6 +267,7 @@ void writeOnSD(String fileName, String content, boolean overwrite) {
  *  - String filename: Name of the file to read from
  */
 String readFromSD(String fileName) {
+  File mySDFile;
   String content = "";
   mySDFile = SD.open(fileName);
   if (mySDFile) {
@@ -318,6 +287,49 @@ void deleteFromSD(String fileName) {
   SD.remove(fileName);
 }
 
+/** 
+ * Function that extract the desired data from the NMEA strings
+ */
+void extractFromNMEA() {
+  // Needed variables to extract the speed
+  char arrVTG[VTG.length()];
+  VTG.toCharArray(arrVTG, VTG.length() + 1);
+
+  // Read speed
+  char *token; token = strtok(arrVTG, ",");
+  token = strtok(NULL, ","); token = strtok(NULL, ",");
+  token = strtok(NULL, ","); token = strtok(NULL, ",");
+  token = strtok(NULL, ","); spd = atof(token);
+
+  // Needed variables to extract the coordinates
+  char arrGLL[GLL.length()];
+  GLL.toCharArray(arrGLL, GLL.length() + 1);
+  float aux_lat, aux_lon;  
+
+  // Read coordinates
+  token = strtok(arrGLL, ",");
+  token = strtok(NULL, ","); aux_lat = parseGNSS(atof(token)); token = strtok(NULL, ",");
+  if (token[0] == 'S') aux_lat = -aux_lat;  // If latitude is on the South, convert it to negative
+  if ((aux_lat < -90) || (aux_lat > 90)) aux_lat = 0;
+  token = strtok(NULL, ","); aux_lon = parseGNSS(atof(token)); token = strtok(NULL, ",");
+  if (token[0] == 'W') aux_lon = -aux_lon;  // If longitude is on the West, convert it to negative
+  if ((aux_lon < -180) || (aux_lon > 180)) aux_lon = 0;
+  token = strtok(NULL, ", "); t = atof(token);
+  
+  // Compute distance between stored and new coordinates
+  if ((coord_lat == 180) && (coord_lon == 180) && (aux_lat != 0) && (aux_lon != 0)) {   // First measure
+      sound(3);
+      coord_lat = aux_lat; coord_lon = aux_lon;
+  } else {                                  // Rest of the measures
+    dist_act += getTravelledDistance(aux_lat, aux_lon);
+    coord_lat = aux_lat; coord_lon = aux_lon;
+    storeMeasure();
+  }
+
+  // Clean GLL and VTG
+  GLL = ""; VTG = "";
+}
+
 /**
  * Function that computes the distance between 2 points using Haversine formula
  * The parameters of the function are the following:
@@ -331,9 +343,9 @@ float getTravelledDistance(float aux_lat, float aux_lon) {
   if (err < 0) err = -err;
 
   // Computation of the distance using the Haversine formula
-  float fi = toRadians(aux_lat - f_lat);
-  float lambda = toRadians(aux_lon - f_lon);
-  float a = pow(sin(fi/2),2) + cos(toRadians(f_lat)) * cos(toRadians(aux_lat)) * pow(sin(lambda/2),2);
+  float fi = toRadians(aux_lat - coord_lat);
+  float lambda = toRadians(aux_lon - coord_lon);
+  float a = pow(sin(fi/2),2) + cos(toRadians(coord_lat)) * cos(toRadians(aux_lat)) * pow(sin(lambda/2),2);
   float d = 2 * EARTH_RADIUS * asin(sqrt(a));
 
   d -= err; 
@@ -357,11 +369,57 @@ float parseGNSS(float coord) {
 }
 
 /**
- * Function that prints the content of a char array
+ * Function that stores a new measure (JSON format) on the SD card
  */
-void printCharArr(char arr[]) {
-  int len = strlen(arr);
-  for (int i = 0; i < len; i++) {
-    Serial.print(arr[i]);
+void storeMeasure() {
+
+  DynamicJsonDocument doc(JSON_OBJECT_SIZE(20));
+
+  String measure = parseNumber(measure_num, 5);
+
+  doc["id"] = "T" + id_trip + "M" + measure;
+  doc["id_trip"] = id_trip;
+  doc["id_driv"] = id_driv;
+  doc["dist_act"] = String(dist_act);
+  doc["coord_lat"] = coord_lat;
+  doc["coord_lon"] = coord_lon;
+  doc["speed"] = spd;
+  doc["time"] = t;
+
+  String output;
+  serializeJson(doc, output);
+  Serial.println("");
+  
+  // Update some values
+  writeOnSD(ODOMETER_FILE, String(dist_act), true);   // Store odometer
+  if (SD.exists(MEASURES_FILE))                       // Store measure
+    writeOnSD(MEASURES_FILE, "," + output, false);
+  else
+    writeOnSD(MEASURES_FILE, output, true);
+  measure_num++;                                      // Increase number of measures
+  
+}
+
+/**
+ * Function that parses a number into the format required for storing
+ * The parameters of the function are the following:
+ *  - Int number: Number to parse
+ *  - Int positions: Number of positions of the desired format
+ */
+String parseNumber(int number, int positions) {
+  String s = "";
+  int zeros = pow(10,(positions-1));
+  bool finish = false;
+
+  while(!finish) {
+    if (number > zeros) {
+      s = s + String(number);
+      finish = true;
+    } else {
+      s = s + "0";
+      zeros = zeros / 10;
+    }
   }
+
+  return s;
 }
