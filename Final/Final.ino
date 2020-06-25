@@ -12,6 +12,7 @@
 #define SOUND_PIN       8 // Buzzer
 #define MODE_CHANGE_PIN 9 // Button
 #define SD_PIN         10 // SD module
+#define IRSENSOR_PIN   A0 // Infrared sensor
 
 // Variables of general purpose
 int actualMode = 0;
@@ -46,6 +47,9 @@ float coord_lat = 180;
 float coord_lon = 180;
 float spd;
 float t;
+
+// Constants to manage parking distance
+const float A = 17478.4, B = -1.2093;
 
 void setup() {
   Serial.begin(9600);
@@ -82,28 +86,52 @@ void setup() {
 
 void loop() {
 
-  char inc;
-  if (gps.available()) {
-    inc = gps.read();
-    if (inc == '$') {
-      if (str.indexOf("$GNGLL") >= 0)
-        GLL = str;
-      else if (str.indexOf("$GNVTG") >= 0)
-        VTG = str;
-      str = "$";
-    } else {
-      str += inc;
+  int buttonState = digitalRead(MODE_CHANGE_PIN);
+  if (buttonState == HIGH) {
+    actualMode = (actualMode+1) % 3;
+    sound(9);
+    while(buttonState == HIGH) {
+      buttonState = digitalRead(MODE_CHANGE_PIN);
     }
-    if ((GLL != "") && (VTG != "")) {
-      extractFromNMEA();
-    }
+    sound(actualMode);
   }
+
+  switch (actualMode) {
+    case 0:
+      char inc;
+      if (gps.available()) {
+        inc = gps.read();
+        if (inc == '$') {
+          if (str.indexOf("$GNGLL") >= 0)
+            GLL = str;
+          else if (str.indexOf("$GNVTG") >= 0)
+            VTG = str;
+          str = "$";
+        } else {
+          str += inc;
+        }
+        if ((GLL != "") && (VTG != "")) {
+          extractFromNMEA();
+        }
+      }
+      break;
+    case 1:
+      
+      break;
+    case 2:
+      float data = analogRead(IRSENSOR_PIN);
+      int cm = A * pow(data, B);
+      sound(getLevelByDistance(cm));
+      break;
+  }
+      
   
 }
 
 /**
  * Function that makes the buzzer sound
  * The "status" parameter indicates the sound to play according to the following list:
+ *  - -1: Stop sounding
  *  - 0: First mode of the device
  *  - 1: Second mode of the device
  *  - 2: Third mode of the device
@@ -112,10 +140,15 @@ void loop() {
  *  - 5: Parking sound: long range
  *  - 6: Parking sound: medium range
  *  - 7: Parking sound: short range
+ *  - 8: Parking sound: super short range
+ *  - 9: Changing mode
  */
 void sound(int status) {
   int notes[] = {262, 294, 330, 349, 392, 440, 494, 523};
   switch (status) {
+    case -1: // Stop sound
+      noTone(SOUND_PIN);
+      break;
     case 0: // First mode of the device
       tone(SOUND_PIN, notes[0]);
       delay(500);
@@ -155,7 +188,7 @@ void sound(int status) {
       delay(250);
       noTone(SOUND_PIN);
       break;
-    /*case 5: // Parking sound: long range
+    case 5: // Parking sound: long range
       tone(SOUND_PIN, notes[5]);
       delay(150);
       noTone(SOUND_PIN);
@@ -167,12 +200,20 @@ void sound(int status) {
       noTone(SOUND_PIN);
       delay(100);
       break;
-    case 7: //Parking sound: short range
+    case 7: // Parking sound: short range
       tone(SOUND_PIN, notes[5]);
       delay(50);
       noTone(SOUND_PIN);
       delay(50);
-      break;*/
+      break;
+    case 8: // Parking sound: super short range
+      tone(SOUND_PIN, notes[5]);
+      delay(50);
+      noTone(SOUND_PIN);
+      break;
+    case 9: // Changing mode
+      tone(SOUND_PIN, notes[0]);
+      break;
   }
 }
 
@@ -422,4 +463,23 @@ String parseNumber(int number, int positions) {
   }
 
   return s;
+}
+
+/**
+ * Function that converts a parking distance (cm)
+ * into a level to create an alarm sound
+ */
+int getLevelByDistance(int cm) {
+  int level;
+  if ((0 <= cm) && (cm <= 15)) 
+    level = 8;
+  else if ((15 < cm) && (cm <= 40))
+    level = 7;
+  else if ((40 < cm) && (cm <= 65))
+    level = 6;
+  else if ((65 < cm) && (cm <= 80))
+    level = 5;
+  else
+    level = -1;
+  return level;
 }
