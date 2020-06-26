@@ -31,7 +31,7 @@ const String MEASURES_FILE = "measures.txt";
 const String ODOMETER_FILE = "odometer.txt";
 
 // Variables and constants for NMEA
-const float EARTH_RADIUS = 6371e3;
+const float EARTH_RADIUS = 6368e3;
 const float MEAN = 0.04;
 const float VAR = 0.03;
 SoftwareSerial gps = SoftwareSerial(NMEA_RX_PIN, NMEA_TX_PIN);
