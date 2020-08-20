@@ -23,7 +23,7 @@ void setup() {
     Serial.println("\n------------------------------------------------------------------------------------------------------------");
     Serial.print("                                               Reading "); Serial.println(s);
     Serial.println("------------------------------------------------------------------------------------------------------------");
-    createHistograms(s);
+    recognizeSample(s);
   }
   Serial.println("\nTraining samples processed");
   
@@ -35,7 +35,7 @@ void loop() { }
 
 // --------------------------- ARTIFICIAL VISION FUNCTIONS --------------------------- //
 
-void createHistograms(String fileName) {
+void recognizeSample(String fileName) {
 
   Serial.println("Starting recognition process");
   
